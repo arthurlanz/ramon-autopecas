@@ -55,17 +55,17 @@ coverage.xml
 *.mo
 *.pot
 
-# Django stuff:
+# Django stuff
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Flask stuff:
+# Flask stuff
 instance/
 .webassets-cache
 
-# Scrapy stuff:
+# Scrapy stuff
 .scrapy
 
 # Sphinx documentation
@@ -97,14 +97,16 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# ===== ENVIRONMENTS =====
 .env
 .venv
 env/
-venv/
 ENV/
 env.bak/
 venv.bak/
+/venv/
+/backend/venv/
+/backend/venv/**
 
 # Spyder project settings
 .spyderproject
@@ -124,33 +126,19 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
 # ===== DJANGO ESPECÍFICO =====
-
-# Media files
 media/
 staticfiles/
 static/
-
-# Database
 *.sqlite3
 *.db
 
-
 # ===== NODE / VUE.JS =====
-
-# Dependencies
 node_modules/
 jspm_packages/
-
-# Production
 /dist
 /build
-
-# Testing
 /coverage
-
-# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -179,10 +167,7 @@ Thumbs.db
 !.yarn/sdks
 !.yarn/versions
 
-
 # ===== SISTEMA OPERACIONAL =====
-
-# Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
@@ -195,7 +180,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # macOS
-.DS_Store
 .AppleDouble
 .LSOverride
 Icon
@@ -220,24 +204,14 @@ Temporary Items
 .Trash-*
 .nfs*
 
-
 # ===== IDEs / EDITORES =====
-
-# VSCode
 .vscode/
 *.code-workspace
-
-# JetBrains (PyCharm, WebStorm, etc)
 .idea/
 *.iml
 *.iws
 *.ipr
 out/
-
-# Sublime Text
-*.tmlanguage.cache
-*.tmPreferences.cache
-*.stTheme.cache
 *.sublime-workspace
 *.sublime-project
 
@@ -254,60 +228,41 @@ Sessionx.vim
 tags
 [._]*.un~
 
-
 # ===== PROJETO ESPECÍFICO =====
-
-# Arquivos de configuração sensíveis
 .env
 .env.local
 .env.*.local
 backend/.env
 frontend/.env
 
-# Backups
 *.bak
 *.backup
 *.old
 
-# Logs do projeto
 logs/
 *.log
 
-# Arquivos temporários
 tmp/
 temp/
 *.tmp
 
-# Certificados SSL (se houver)
 *.pem
 *.key
 *.crt
 
-# Cache do Redis
 dump.rdb
 
-# Arquivos de banco de dados locais
 *.sql
 *.sql.gz
 
-
 # ===== DEPLOYMENT =====
-
-# Heroku
 .heroku/
 Procfile.windows
-
-# Docker
 docker-compose.override.yml
 .dockerignore
-
-# AWS
 .aws/
 .eb/
 .elasticbeanstalk/
 
-
 # ===== MANTER ESTRUTURA DE PASTAS =====
-
-# Manter pastas vazias com .gitkeep
 !.gitkeep
