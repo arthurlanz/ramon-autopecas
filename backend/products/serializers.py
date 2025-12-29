@@ -6,20 +6,24 @@ class CategorySerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Category
-        fields = ['id', 'name', 'slug', 'ml_category_id', 'description', 
-                  'image', 'is_active', 'product_count', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'name', 'slug', 'description', 'image', 'product_count', 'is_active']
+        read_only_fields = ['slug']
     
     def get_product_count(self, obj):
         return obj.products.filter(status='active').count()
 
-
 class ProductImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'alt_text', 'is_primary', 'order']
-        read_only_fields = ['id']
-
+        fields = ['id', 'image', 'image_url', 'alt_text', 'is_primary', 'order']
+    
+    def get_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.image and hasattr(obj.image, 'url'):
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
 
 class ProductListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
@@ -27,59 +31,103 @@ class ProductListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Product
-        fields = ['id', 'title', 'slug', 'sku', 'brand', 'price', 'stock_quantity', 
-                  'status', 'category_name', 'primary_image', 'featured', 'ml_item_id',
-                  'is_low_stock', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id', 'title', 'slug', 'price', 'stock_quantity', 'brand', 'sku',
+            'category', 'category_name', 'primary_image', 'status', 'featured',
+            'ml_item_id', 'ml_permalink', 'ml_status', 'created_at'
+        ]
     
     def get_primary_image(self, obj):
-        image = obj.images.filter(is_primary=True).first()
-        if image:
+        primary = obj.images.filter(is_primary=True).first()
+        if not primary:
+            primary = obj.images.first()
+        if primary:
             request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(image.image.url)
+            return request.build_absolute_uri(primary.image.url) if request else primary.image.url
         return None
 
-
 class ProductDetailSerializer(serializers.ModelSerializer):
-    category = CategorySerializer(read_only=True)
-    category_id = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all(), 
-        source='category', 
-        write_only=True
-    )
+    category_name = serializers.CharField(source='category.name', read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
-    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
-    profit_margin = serializers.ReadOnlyField()
+    is_low_stock = serializers.ReadOnlyField()
     
     class Meta:
         model = Product
-        fields = '__all__'
-        read_only_fields = ['id', 'slug', 'created_by', 'views_count', 
-                            'ml_status', 'last_ml_sync', 'created_at', 'updated_at']
-    
-    def create(self, validated_data):
-        request = self.context.get('request')
-        if request and request.user:
-            validated_data['created_by'] = request.user
-        return super().create(validated_data)
-
+        fields = [
+            'id', 'title', 'slug', 'description', 'price', 'cost_price',
+            'stock_quantity', 'min_stock_alert', 'brand', 'model', 'sku', 'barcode',
+            'category', 'category_name', 'compatible_vehicles', 'year_from', 'year_to',
+            'condition', 'status', 'weight', 'length', 'width', 'height',
+            'images', 'ml_item_id', 'ml_permalink', 'ml_status', 'sync_with_ml',
+            'last_ml_sync', 'featured', 'views_count', 'is_low_stock',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['slug', 'views_count', 'created_at', 'updated_at']
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
+    uploaded_images = serializers.ListField(
+        child=serializers.ImageField(),
+        write_only=True,
+        required=False
+    )
+    
     class Meta:
         model = Product
-        fields = ['title', 'description', 'category', 'sku', 'barcode', 'brand', 
-                  'model', 'compatible_vehicles', 'year_from', 'year_to', 'price', 
-                  'cost_price', 'stock_quantity', 'min_stock_alert', 'weight', 
-                  'length', 'width', 'height', 'condition', 'status', 'sync_with_ml', 
-                  'featured']
+        fields = [
+            'title', 'description', 'price', 'cost_price', 'stock_quantity',
+            'min_stock_alert', 'brand', 'model', 'sku', 'barcode', 'category',
+            'compatible_vehicles', 'year_from', 'year_to', 'condition', 'status',
+            'weight', 'length', 'width', 'height', 'featured', 'sync_with_ml',
+            'uploaded_images'
+        ]
     
-    def validate_price(self, value):
-        if value <= 0:
-            raise serializers.ValidationError("O preço deve ser maior que zero")
-        return value
+    def create(self, validated_data):
+        uploaded_images = validated_data.pop('uploaded_images', [])
+        validated_data['created_by'] = self.context['request'].user
+        
+        # Gerar slug automático
+        from django.utils.text import slugify
+        validated_data['slug'] = slugify(validated_data['title'])
+        
+        product = Product.objects.create(**validated_data)
+        
+        # Criar imagens
+        for idx, image in enumerate(uploaded_images):
+            ProductImage.objects.create(
+                product=product,
+                image=image,
+                is_primary=(idx == 0),
+                order=idx
+            )
+        
+        # Se sync_with_ml=True, agendar sincronização
+        if validated_data.get('sync_with_ml'):
+            from mercadolivre.tasks import sync_product_to_ml
+            sync_product_to_ml.delay(product.id)
+        
+        return product
     
-    def validate_stock_quantity(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Estoque não pode ser negativo")
-        return value
+    def update(self, instance, validated_data):
+        uploaded_images = validated_data.pop('uploaded_images', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Atualizar imagens se fornecidas
+        if uploaded_images is not None:
+            instance.images.all().delete()
+            for idx, image in enumerate(uploaded_images):
+                ProductImage.objects.create(
+                    product=instance,
+                    image=image,
+                    is_primary=(idx == 0),
+                    order=idx
+                )
+        
+        # Se sync_with_ml=True, sincronizar
+        if validated_data.get('sync_with_ml'):
+            from mercadolivre.tasks import sync_product_to_ml
+            sync_product_to_ml.delay(instance.id)
+        
+        return instance
