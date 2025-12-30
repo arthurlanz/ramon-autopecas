@@ -1,268 +1,29 @@
-# ===== PYTHON / DJANGO =====
-
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff
-instance/
-.webassets-cache
-
-# Scrapy stuff
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-.python-version
-
-# pipenv
-Pipfile.lock
-
-# PEP 582
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# ===== ENVIRONMENTS =====
-.env
-.venv
+# Ambientes virtuais
+venv/
 env/
-ENV/
-env.bak/
-venv.bak/
-/venv/
-/backend/venv/
-/backend/venv/**
+*/venv/
+*/env/
 
-# Spyder project settings
-.spyderproject
-.spyproject
+# Arquivos de ambiente
+.env
+.env.local
+*/.env
 
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# ===== DJANGO ESPECÍFICO =====
-media/
-staticfiles/
-static/
-*.sqlite3
-*.db
-
-# ===== NODE / VUE.JS =====
+# Node modules
 node_modules/
-jspm_packages/
-/dist
-/build
-/coverage
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
+*/node_modules/
+
+# Build folders
+dist/
+build/
+*/dist/
+*/build/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Editor directories and files
-.idea
-.vscode
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Yarn
-.yarn-integrity
-.yarn/*
-!.yarn/cache
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-
-# ===== SISTEMA OPERACIONAL =====
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-*.lnk
-
-# macOS
-.AppleDouble
-.LSOverride
-Icon
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-# Linux
-*~
-.fuse_hidden*
-.directory
-.Trash-*
-.nfs*
-
-# ===== IDEs / EDITORES =====
+# IDEs
 .vscode/
-*.code-workspace
 .idea/
-*.iml
-*.iws
-*.ipr
-out/
-*.sublime-workspace
-*.sublime-project
-
-# Vim
-[._]*.s[a-v][a-z]
-[._]*.sw[a-p]
-[._]s[a-rt-v][a-z]
-[._]ss[a-gi-z]
-[._]sw[a-p]
-Session.vim
-Sessionx.vim
-.netrwhist
-*~
-tags
-[._]*.un~
-
-# ===== PROJETO ESPECÍFICO =====
-.env
-.env.local
-.env.*.local
-backend/.env
-frontend/.env
-
-*.bak
-*.backup
-*.old
-
-logs/
-*.log
-
-tmp/
-temp/
-*.tmp
-
-*.pem
-*.key
-*.crt
-
-dump.rdb
-
-*.sql
-*.sql.gz
-
-# ===== DEPLOYMENT =====
-.heroku/
-Procfile.windows
-docker-compose.override.yml
-.dockerignore
-.aws/
-.eb/
-.elasticbeanstalk/
-
-# ===== MANTER ESTRUTURA DE PASTAS =====
-!.gitkeep
+*.swp

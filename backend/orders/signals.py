@@ -1,104 +1,87 @@
-from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Count, Avg, F
-from .models import Category, Product, ProductImage
-from .serializers import (
-    CategorySerializer, ProductListSerializer,
-    ProductDetailSerializer, ProductCreateUpdateSerializer,
-    ProductImageSerializer
-)
-from .filters import ProductFilter
+"""
+Signals para o app Orders
+Gerenciar automaticamente estoque e outras ações quando pedidos são criados/atualizados
+"""
 
-class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.filter(is_active=True)
-    serializer_class = CategorySerializer
-    lookup_field = 'slug'
-    
-    def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [AllowAny()]
-        return [IsAuthenticated()]
+from django.db.models.signals import post_save, pre_save, post_delete
+from django.dispatch import receiver
+from django.db.models import F
 
-class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.filter(status='active')
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_class = ProductFilter
-    search_fields = ['title', 'description', 'sku', 'brand', 'compatible_vehicles']
-    ordering_fields = ['price', 'created_at', 'stock_quantity', 'title']
-    ordering = ['-created_at']
-    lookup_field = 'slug'
-    
-    def get_permissions(self):
-        if self.action in ['list', 'retrieve', 'featured']:
-            return [AllowAny()]
-        return [IsAuthenticated()]
-    
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return ProductListSerializer
-        elif self.action in ['create', 'update', 'partial_update']:
-            return ProductCreateUpdateSerializer
-        return ProductDetailSerializer
-    
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        # Incrementar visualizações
-        instance.views_count += 1
-        instance.save(update_fields=['views_count'])
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
-    def featured(self, request):
-        """Produtos em destaque"""
-        products = self.queryset.filter(featured=True)[:10]
-        serializer = ProductListSerializer(products, many=True, context={'request': request})
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
-    def low_stock(self, request):
-        """Produtos com estoque baixo"""
-        products = Product.objects.filter(
-            stock_quantity__lte=F('min_stock_alert'),
-            status='active'
-        )
-        serializer = ProductListSerializer(products, many=True, context={'request': request})
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'])
-    def add_image(self, request, slug=None):
-        """Adicionar imagem ao produto"""
-        product = self.get_object()
-        serializer = ProductImageSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(product=product)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=True, methods=['post'])
-    def sync_to_ml(self, request, slug=None):
-        """Sincronizar produto com Mercado Livre"""
-        product = self.get_object()
-        from mercadolivre.tasks import sync_product_to_ml
-        task = sync_product_to_ml.delay(product.id)
-        return Response({
-            "message": "Sincronização iniciada",
-            "task_id": task.id
-        })
-    
-    @action(detail=False, methods=['get'])
-    def statistics(self, request):
-        """Estatísticas dos produtos"""
-        stats = {
-            'total': Product.objects.count(),
-            'active': Product.objects.filter(status='active').count(),
-            'low_stock': Product.objects.filter(
-                stock_quantity__lte=F('min_stock_alert')
-            ).count(),
-            'out_of_stock': Product.objects.filter(stock_quantity=0).count(),
-            'synced_ml': Product.objects.filter(ml_item_id__isnull=False).count(),
-        }
-        return Response(stats)
+from products.models import Product
+from .models import Order, OrderItem
+
+
+@receiver(pre_save, sender=Order)
+def generate_order_number(sender, instance, **kwargs):
+    """
+    Gerar número único de pedido automaticamente se não existir
+    """
+    if not instance.order_number:
+        import random
+        import string
+        from django.utils import timezone
+        
+        # Formato: RP-YYYYMMDD-XXXX (Ramon Peças)
+        date_str = timezone.now().strftime('%Y%m%d')
+        random_str = ''.join(random.choices(string.digits, k=4))
+        instance.order_number = f"RP-{date_str}-{random_str}"
+        
+        # Verificar se já existe (improvável mas possível)
+        while Order.objects.filter(order_number=instance.order_number).exists():
+            random_str = ''.join(random.choices(string.digits, k=4))
+            instance.order_number = f"RP-{date_str}-{random_str}"
+
+
+@receiver(post_save, sender=OrderItem)
+def update_product_stock_on_item_created(sender, instance, created, **kwargs):
+    """
+    Reduzir estoque quando um item de pedido é criado
+    Apenas se o pedido já estiver pago/processando
+    """
+    if created:
+        order = instance.order
+        
+        # Só atualizar estoque se pedido estiver confirmado
+        if order.status in ['paid', 'processing', 'shipped', 'delivered']:
+            product = instance.product
+            
+            # Usar F() para evitar race conditions
+            product.stock_quantity = F('stock_quantity') - instance.quantity
+            product.save(update_fields=['stock_quantity'])
+            
+            # Recarregar para ter o valor atualizado
+            product.refresh_from_db()
+
+
+@receiver(post_save, sender=Order)
+def handle_order_status_change(sender, instance, created, **kwargs):
+    """
+    Gerenciar mudanças de status do pedido
+    """
+    if not created:
+        # Se pedido foi cancelado, devolver estoque
+        if instance.status == 'cancelled':
+            for item in instance.items.all():
+                product = item.product
+                product.stock_quantity = F('stock_quantity') + item.quantity
+                product.save(update_fields=['stock_quantity'])
+                product.refresh_from_db()
+        
+        # Se mudou de pending para paid, reduzir estoque
+        elif instance.status in ['paid', 'processing']:
+            # Verificar se itens já tiveram estoque reduzido
+            # (essa lógica pode ser melhorada com um flag no OrderItem)
+            pass
+
+
+@receiver(post_delete, sender=OrderItem)
+def restore_stock_on_item_deleted(sender, instance, **kwargs):
+    """
+    Restaurar estoque se um item de pedido for deletado
+    """
+    # Só restaurar se o pedido não estiver cancelado
+    if instance.order.status != 'cancelled':
+        product = instance.product
+        product.stock_quantity = F('stock_quantity') + instance.quantity
+        product.save(update_fields=['stock_quantity'])
+        product.refresh_from_db()
